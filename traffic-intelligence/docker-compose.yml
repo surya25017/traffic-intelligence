@@ -1,0 +1,146 @@
+# ══════════════════════════════════════════════════════════════
+#  Traffic Intelligence — Docker Compose
+#  Services: Kafka (KRaft), Spark, FastAPI backend, React frontend
+# ══════════════════════════════════════════════════════════════
+version: "3.9"
+
+x-kafka-env: &kafka-env
+  KAFKA_NODE_ID: 1
+  KAFKA_PROCESS_ROLES: broker,controller
+  KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+  KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+  KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+  KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+  KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+  KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+  KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+  KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+  KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+  KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+  KAFKA_LOG_RETENTION_HOURS: 2
+  KAFKA_LOG_SEGMENT_BYTES: 10485760
+  CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qg"
+
+services:
+  # ── Apache Kafka (KRaft mode — no Zookeeper) ──────────────────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: traffic-kafka
+    hostname: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      <<: *kafka-env
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # ── Kafka Topic Setup (runs once then exits) ──────────────────────────────
+  kafka-setup:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.producers
+    container_name: traffic-kafka-setup
+    command: ["python", "kafka/topic_setup.py"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: "no"
+
+  # ── GPS + Sensor Producers ────────────────────────────────────────────────
+  producers:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.producers
+    container_name: traffic-producers
+    command: ["python", "producers/traffic_simulator.py"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      NUM_VEHICLES: "30"
+      GPS_PUBLISH_INTERVAL_S: "2"
+      SENSOR_PUBLISH_INTERVAL_S: "5"
+    depends_on:
+      kafka-setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # ── Apache Spark Structured Streaming ────────────────────────────────────
+  spark:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.spark
+    container_name: traffic-spark
+    command:
+      - spark-submit
+      - --packages
+      - org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0
+      - --conf
+      - spark.sql.shuffle.partitions=4
+      - /app/spark/streaming_job.py
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      WINDOW_DURATION_S: "60"
+      SLIDE_DURATION_S: "30"
+      WATERMARK_DELAY_S: "30"
+      CHECKPOINT_DIR: /app/checkpoints
+      DB_PATH: /app/data/traffic.db
+    volumes:
+      - shared-data:/app/data
+      - checkpoints:/app/checkpoints
+    depends_on:
+      kafka-setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # ── FastAPI Backend ───────────────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: traffic-backend
+    ports:
+      - "8000:8000"
+    environment:
+      DB_PATH: /app/data/traffic.db
+      ROUTE_REFRESH_INTERVAL_S: "30"
+    volumes:
+      - shared-data:/app/data
+    depends_on:
+      kafka-setup:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  # ── React Frontend ────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/Dockerfile.frontend
+    container_name: traffic-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_API_URL: http://localhost:8000
+      CHOKIDAR_USEPOLLING: "true"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  kafka-data:
+  shared-data:
+  checkpoints:

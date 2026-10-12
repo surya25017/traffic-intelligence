@@ -1,0 +1,15 @@
+# Dockerfile for GPS/Sensor Producers and Kafka setup
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY kafka/ kafka/
+COPY producers/ producers/
+COPY spark/congestion_processor.py spark/congestion_processor.py
+COPY spark/__init__.py spark/__init__.py
+COPY data/ data/
+
+CMD ["python", "producers/traffic_simulator.py"]

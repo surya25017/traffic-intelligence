@@ -1,0 +1,23 @@
+# Dockerfile for Apache Spark Structured Streaming job
+FROM bitnami/spark:3.5.1
+
+USER root
+WORKDIR /app
+
+# Install Python dependencies inside Spark container
+COPY requirements.txt /tmp/req.txt
+RUN pip install --no-cache-dir -r /tmp/req.txt
+
+COPY spark/       spark/
+COPY routing/     routing/
+COPY data/        data/
+COPY kafka/       kafka/
+COPY producers/   producers/
+
+# Create checkpoint and data directories
+RUN mkdir -p /app/checkpoints /app/data
+
+CMD ["spark-submit", \
+     "--packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0", \
+     "--conf", "spark.sql.shuffle.partitions=4", \
+     "/app/spark/streaming_job.py"]

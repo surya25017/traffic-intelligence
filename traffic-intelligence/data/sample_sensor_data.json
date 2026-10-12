@@ -1,0 +1,10 @@
+[
+  {"sensor_id": "SEN-001", "segment_id": "SEG-AB", "vehicle_count": 45, "avg_speed_kph": 52.3, "density_veh_per_km": 37.5, "timestamp": "2024-01-15T08:00:00Z"},
+  {"sensor_id": "SEN-002", "segment_id": "SEG-AC", "vehicle_count": 62, "avg_speed_kph": 38.1, "density_veh_per_km": 56.4, "timestamp": "2024-01-15T08:00:00Z"},
+  {"sensor_id": "SEN-003", "segment_id": "SEG-AD", "vehicle_count": 28, "avg_speed_kph": 44.7, "density_veh_per_km": 21.5, "timestamp": "2024-01-15T08:00:00Z"},
+  {"sensor_id": "SEN-004", "segment_id": "SEG-AE", "vehicle_count": 15, "avg_speed_kph": 49.8, "density_veh_per_km": 13.6, "timestamp": "2024-01-15T08:00:00Z"},
+  {"sensor_id": "SEN-005", "segment_id": "SEG-BF", "vehicle_count": 72, "avg_speed_kph": 22.4, "density_veh_per_km": 65.5, "timestamp": "2024-01-15T08:00:00Z"},
+  {"sensor_id": "SEN-006", "segment_id": "SEG-CF", "vehicle_count": 95, "avg_speed_kph": 15.2, "density_veh_per_km": 67.9, "timestamp": "2024-01-15T08:00:00Z"},
+  {"sensor_id": "SEN-007", "segment_id": "SEG-NO", "vehicle_count": 110, "avg_speed_kph": 70.5, "density_veh_per_km": 12.9, "timestamp": "2024-01-15T08:00:00Z"},
+  {"sensor_id": "SEN-008", "segment_id": "SEG-OB", "vehicle_count": 88, "avg_speed_kph": 35.6, "density_veh_per_km": 41.9, "timestamp": "2024-01-15T08:00:00Z"}
+]
